@@ -1,0 +1,16 @@
+# Datasets e índice (se regeneran con los scripts)
+images/
+index/
+deploy/images/
+deploy/index/
+_raw/
+val2017.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Temporales de Office y Node
+~$*
+node_modules/
