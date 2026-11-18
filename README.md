@@ -86,6 +86,8 @@ más tiempo de construcción (295 s) y más memoria. Se ejecuta con `python benc
 - `download_dataset.py`, `download_coco.py`, `make_deploy.py`, `benchmark.py`
 - `deploy/`: Dockerfile y archivos para un Space de Hugging Face (requiere plan de pago para Docker)
 - `presentacion.pptx`: presentación final
+- `docs/presentacion.pdf` y `docs/informe.pdf`: presentación e informe en PDF
+- `docker-compose.yml`, `app/db.py`, `migrate_to_db.py`, `benchmark_pg.py`: modo PostgreSQL + pgvector
 
 ## Limitaciones
 - CLIP es débil contando objetos ("two dogs") y el sistema solo conoce lo que hay en el dataset.
