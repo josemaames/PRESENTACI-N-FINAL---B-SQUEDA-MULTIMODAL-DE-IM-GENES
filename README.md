@@ -33,6 +33,40 @@ python -m uvicorn app.main:app --port 8000
 Luego abre http://localhost:8000. La primera ejecución descarga los modelos (~1,1 GB en total).
 Cualquier carpeta con 1000 o más imágenes en `./images` sirve en lugar de los datasets de ejemplo.
 
+## Base de datos: PostgreSQL + pgvector (opcional)
+Por defecto el índice vive en memoria (`index/embeddings.npy` + FAISS). Para guardar imágenes, metadatos y
+vectores en una base de datos real, hay un modo con **PostgreSQL + pgvector** (necesita Docker):
+
+```bash
+docker compose up -d              # PostgreSQL con pgvector en el puerto 5433
+python migrate_to_db.py --reset   # carga los embeddings y crea el índice HNSW
+```
+
+Luego se arranca el servidor eligiendo el backend (`faiss` por defecto, o `postgres`):
+
+```bash
+# PowerShell
+$env:SEARCH_BACKEND="postgres"; python -m uvicorn app.main:app --port 8000
+```
+
+Tabla `images`: `id` · `path` (única) · `dataset` (`pets` o `coco`) · `label` (raza, en mascotas) · `embedding vector(512)`.
+La búsqueda es una consulta SQL ordenada por distancia coseno (`ORDER BY embedding <=> $1 LIMIT 6`) que usa un índice HNSW.
+La conexión se configura con `DATABASE_URL` (por defecto `postgresql://imagesearch:imagesearch@localhost:5433/imagesearch`,
+credenciales de desarrollo local; cámbialas si lo expones fuera de tu equipo).
+
+Con las 12 390 imágenes, pgvector coincide con la búsqueda exacta en el 99,8 % de los resultados (recall@6 = 0,998).
+`benchmark_pg.py` mide el comportamiento a gran escala (usa una tabla temporal, no toca `images`). Resultados en CPU,
+con Docker, 105 consultas, top 6, y vectores adicionales sintéticos creados a partir de embeddings reales:
+
+| Vectores | Exacta (sin índice) | HNSW `ef_search=64` | Recall@6 | Construcción del índice | Tamaño del índice |
+| --- | --- | --- | --- | --- | --- |
+| 100 000 | 429 ms | 3,9 ms | 0,998 | 90 s | 273 MB |
+| 500 000 | 1 144 ms | 6,6 ms | 0,997 | 215 s | 1 365 MB |
+
+Con `ef_search=40` baja a 4,0 ms (recall 0,994) y con `ef_search=128` sube a 9,9 ms (recall 0,998). En comparación con FAISS HNSW
+en memoria (0,87 ms con 500 000 vectores), PostgreSQL es más lento por consulta, a cambio de persistencia, metadatos y filtros SQL.
+Los tiempos de PostgreSQL incluyen el viaje de ida y vuelta al contenedor.
+
 ## Escalabilidad
 `benchmark.py` compara búsqueda exacta (numpy y FAISS Flat) con índices aproximados (IVF y HNSW).
 Tiempo por consulta en CPU, con vectores adicionales sintéticos creados a partir de embeddings reales:

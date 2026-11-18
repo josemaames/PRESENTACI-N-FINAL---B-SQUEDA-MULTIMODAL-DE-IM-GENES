@@ -1,0 +1,22 @@
+# PostgreSQL + pgvector para el buscador de imágenes.
+# Puerto 5433 en el equipo para no chocar con un PostgreSQL local en el 5432.
+# Credenciales de desarrollo local: cámbialas con las variables de entorno si lo publicas.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: imagesearch-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGUSER:-imagesearch}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-imagesearch}
+      POSTGRES_DB: ${PGDATABASE:-imagesearch}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 4g   # la construcción paralela del índice HNSW usa memoria compartida
+    # Más memoria para construir el índice HNSW con muchos vectores
+    command: ["postgres", "-c", "maintenance_work_mem=1GB", "-c", "max_parallel_maintenance_workers=4", "-c", "shared_buffers=512MB"]
+
+volumes:
+  pgdata:

@@ -8,3 +8,5 @@ numpy
 faiss-cpu
 sentence-transformers
 torchvision
+psycopg[binary,pool]
+pgvector
