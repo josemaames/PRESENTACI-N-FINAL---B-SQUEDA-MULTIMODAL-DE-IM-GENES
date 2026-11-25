@@ -32,6 +32,13 @@
   .seg { display:inline-flex; background:var(--surface-2); border-radius:999px; padding:4px; gap:2px; margin-bottom:16px; }
   .seg button { border:0; background:transparent; color:var(--muted); padding:8px 18px; border-radius:999px; font-weight:600; font-size:.9rem; transition:all .2s; }
   .seg button.active { background:var(--surface); color:var(--fg); box-shadow:0 2px 8px rgba(0,0,0,.12); }
+  .toprow { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; margin-bottom:16px; }
+  .toprow .seg { margin-bottom:0; }
+  .method-wrap { display:flex; align-items:center; gap:8px; }
+  .method-wrap .lbl { color:var(--muted); font-size:.85rem; font-weight:600; }
+  .seg.method button.active { background:var(--accent); color:#fff; box-shadow:0 2px 10px rgba(99,102,241,.35); }
+  .seg.method button:disabled { opacity:.45; cursor:not-allowed; }
+  .badge { display:inline-block; margin-left:8px; padding:2px 10px; border-radius:999px; background:var(--surface-2); color:var(--fg); font-size:.78rem; font-weight:600; }
 
   .panel { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:14px; box-shadow:var(--shadow); }
   .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
@@ -129,7 +136,7 @@
   <header>
     <div>
       <h1><span>Buscador multimodal</span> de imágenes</h1>
-      <div class="sub" id="info">CLIP · texto en español e inglés · imagen a imagen</div>
+      <div class="sub" id="info">CLIP y SigLIP · texto en español e inglés · imagen a imagen</div>
     </div>
     <div class="head-btns">
       <button class="icon-btn" id="help" aria-label="¿Cómo funciona?" title="¿Cómo funciona?">?</button>
@@ -137,9 +144,18 @@
     </div>
   </header>
 
-  <div class="seg" role="tablist">
-    <button id="tab-text" class="active" role="tab">Texto</button>
-    <button id="tab-image" role="tab">Imagen</button>
+  <div class="toprow">
+    <div class="seg" role="tablist">
+      <button id="tab-text" class="active" role="tab">Texto</button>
+      <button id="tab-image" role="tab">Imagen</button>
+    </div>
+    <div class="method-wrap">
+      <span class="lbl">Método</span>
+      <div class="seg method" id="methods" role="group" aria-label="Método de búsqueda">
+        <button data-m="clip" class="active" title="CLIP ViT-B/32: 512 dimensiones, el método principal">CLIP</button>
+        <button data-m="siglip" title="SigLIP ViT-B/16: 768 dimensiones, método de comparación">SigLIP</button>
+      </div>
+    </div>
   </div>
 
   <section class="panel">
@@ -287,6 +303,8 @@ function render(data) {
     $("results").append(c);
   });
   setStatus(`${data.results.length} resultados en ${data.ms} ms`);
+  const b = document.createElement("span"); b.className = "badge"; b.textContent = LABELS[data.method || method];
+  $("status").append(b);
 }
 async function run(promise, btn) {
   setStatus("Buscando…", "load"); btn.disabled = true;
@@ -296,20 +314,36 @@ async function run(promise, btn) {
   } catch (e) { $("results").innerHTML = ""; setStatus("Error: " + e, "err"); }
   btn.disabled = false;
 }
+// ---- Método de búsqueda (CLIP | SigLIP): al cambiarlo se repite la última búsqueda ----
+const LABELS = { clip: "CLIP ViT-B/32", siglip: "SigLIP ViT-B/16" };
+let method = "clip", lastSearch = null;
+try { method = localStorage.getItem("method") === "siglip" ? "siglip" : "clip"; } catch (e) {}
+function setMethod(m, rerun) {
+  method = m;
+  try { localStorage.setItem("method", m); } catch (e) {}
+  document.querySelectorAll("#methods button").forEach(b => b.classList.toggle("active", b.dataset.m === m));
+  if (rerun && lastSearch) lastSearch();
+  else if (rerun) toast("Método: " + LABELS[m]);
+}
+document.querySelectorAll("#methods button").forEach(b => b.onclick = () => { if (b.dataset.m !== method) setMethod(b.dataset.m, true); });
+setMethod(method, false);
 const K = () => ($(current === "text" ? "k-text" : "k-image")).value;
 
-function doText() {
+function doText(save = true) {
   const q = $("q").value.trim();
   if (!q) return setStatus("Escribe una consulta.", "err");
-  saveHist(q); showSkeleton(+K());
-  run(fetch("/api/search/text?k=" + K() + "&q=" + encodeURIComponent(q)), $("go-text"));
-}
-function similar(name) {
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (save) saveHist(q);
+  lastSearch = () => doText(false);
   showSkeleton(+K());
-  run(fetch("/api/search/similar?k=" + K() + "&name=" + encodeURIComponent(name)), current === "text" ? $("go-text") : $("go-image"));
+  run(fetch("/api/search/text?k=" + K() + "&method=" + method + "&q=" + encodeURIComponent(q)), $("go-text"));
 }
-$("go-text").onclick = doText;
+function similar(name, scroll = true) {
+  if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
+  lastSearch = () => similar(name, false);
+  showSkeleton(+K());
+  run(fetch("/api/search/similar?k=" + K() + "&method=" + method + "&name=" + encodeURIComponent(name)), current === "text" ? $("go-text") : $("go-image"));
+}
+$("go-text").onclick = () => doText();
 $("q").onkeydown = e => { if (e.key === "Enter") doText(); };
 document.querySelectorAll("#chips .chip").forEach(b => b.onclick = () => { $("q").value = b.dataset.q; doText(); });
 
@@ -353,9 +387,13 @@ $("cam-file").onchange = () => { pick($("cam-file").files[0]); if (chosen) $("go
 $("drop").addEventListener("drop", e => pick(e.dataTransfer.files[0]));
 $("go-image").onclick = () => {
   if (!chosen) return setStatus("Sube una imagen primero.", "err");
-  const fd = new FormData(); fd.append("file", chosen); fd.append("k", K());
-  showSkeleton(+K());
-  run(fetch("/api/search/image", { method: "POST", body: fd }), $("go-image"));
+  const file = chosen;
+  const go = () => {
+    const fd = new FormData(); fd.append("file", file); fd.append("k", K()); fd.append("method", method);
+    showSkeleton(+K());
+    run(fetch("/api/search/image", { method: "POST", body: fd }), $("go-image"));
+  };
+  lastSearch = go; go();
 };
 document.addEventListener("paste", e => {
   const f = e.clipboardData && e.clipboardData.files && e.clipboardData.files[0];
@@ -425,7 +463,11 @@ document.addEventListener("keydown", e => {
 
 // ---- Info del índice ----
 fetch("/api/info").then(r => r.json()).then(i => {
-  if (i.images) { totalImgs = i.images; $("info").textContent = `CLIP · ${i.images.toLocaleString()} imágenes indexadas · texto en español e inglés`; }
+  (i.methods || []).forEach(m => {
+    const b = document.querySelector(`#methods button[data-m="${m.id}"]`);
+    if (b && !m.available) { b.disabled = true; b.title = "Índice no construido: python -m app.main --build-siglip"; if (method === m.id) setMethod("clip", false); }
+  });
+  if (i.images) { totalImgs = i.images; $("info").textContent = `CLIP y SigLIP · ${i.images.toLocaleString()} imágenes indexadas · texto en español e inglés`; }
 }).catch(() => {});
 </script>
 </body>

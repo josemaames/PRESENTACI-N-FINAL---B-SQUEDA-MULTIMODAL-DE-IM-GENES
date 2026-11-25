@@ -1,0 +1,52 @@
+{
+  "k": 6,
+  "images": 12390,
+  "img2img_precision@6": {
+    "clip": 0.7233333333333334,
+    "siglip": 0.8864444444444444
+  },
+  "text2img_breed_precision@6": {
+    "clip": 0.13513513513513511,
+    "clip_en": 0.9054054054054054,
+    "siglip": 0.972972972972973
+  },
+  "text2img_breed_precision@20": {
+    "clip": 0.12567567567567567,
+    "clip_en": 0.8918918918918919,
+    "siglip": 0.9648648648648649
+  },
+  "text2img_species_precision@20": {
+    "clip": {
+      "en": 1.0,
+      "es": 1.0
+    },
+    "clip_en": {
+      "en": 1.0
+    },
+    "siglip": {
+      "en": 0.925,
+      "es": 0.975
+    }
+  },
+  "agreement@6": {
+    "text": 0.19999999999999998,
+    "text_clip_en_only_english_queries": 0.16666666666666663,
+    "image": 0.3433333333333333
+  },
+  "cost": {
+    "clip": {
+      "dim": 512,
+      "index_mb": 25.4,
+      "encode_image_ms": 37.1,
+      "encode_text_ms": 12.2,
+      "search_ms": 0.96
+    },
+    "siglip": {
+      "dim": 768,
+      "index_mb": 38.1,
+      "encode_image_ms": 170.6,
+      "encode_text_ms": 51.1,
+      "search_ms": 1.11
+    }
+  }
+}

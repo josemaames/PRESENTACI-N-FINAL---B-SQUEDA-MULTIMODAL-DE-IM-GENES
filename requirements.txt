@@ -10,3 +10,4 @@ sentence-transformers
 torchvision
 psycopg[binary,pool]
 pgvector
+sentencepiece
